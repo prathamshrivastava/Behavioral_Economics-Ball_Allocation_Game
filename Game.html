@@ -1,0 +1,522 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+
+<div class="header-containerd">
+    <h2 style="text-align: center;">Zweite bezahlte Aufgabe </h2>
+    <h4 style="text-align: center;">Bitte treffen Sie Ihre Entscheidung für Runde {{ player.round_number }}</h4>
+</div>
+<h3 style="text-align: center; margin-top: 20px;">
+</h3>
+<div id="game-container">
+    <div class="bucket-section">
+        <h4>Ziehen Sie jeden Token von hier in eines der Konten:</h4>
+        <div id="balls-container" class="draggable-balls">
+            <!-- Balls will be dynamically created by JavaScript -->
+        </div>
+    </div>
+
+    <div class="grids-container">
+        <!-- Public Account -->
+        <div class="grid-section">
+            <h3>Y (Gemeinschaftskonto)</h3>
+            
+            <!-- New Public Input Grid -->
+            <div class="input-grid">
+                <div class="grid-row">
+                    <div class="player-symbol">Ihr Beitrag</div>
+                    {% for col in range(9) %}
+                        <div class="grid-cell input-cell" data-type="public" data-col="{{ col }}"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Display Grid (3x9) -->
+            <div id="grid-3x9" class="grid grid-3x9 display-grid">
+                {% for row in range(3) %}
+                    <div class="grid-row {% if row == 0 %}first-row{% else %}other-rows{% endif %}">
+                        <div class="player-symbol">
+                            {% if row == 0 %}Ihr Erlös{% elif row == 1 %}Person 2{% elif row == 2 %}Person 3{% endif %}
+                        </div>
+                        {% for col in range(9) %}
+                            <div class="grid-cell display-cell" data-row="{{ row }}" data-col="{{ col }}"></div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Private Account -->
+        <div class="grid-section">
+            <h3>X (Privates Konto)</h3>
+            
+            <!-- New Private Input Grid -->
+            <div class="input-grid">
+                <div class="grid-row">
+                    <div class="player-symbol">Ihr Beitrag</div>
+                    {% for col in range(9) %}
+                        <div class="grid-cell input-cell" data-type="private" data-col="{{ col }}"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Display Grid (1x9) -->
+            <div id="grid-1x9" class="grid grid-1x9 display-grid">
+                <div class="grid-row first-row">
+                    <div class="player-symbol">Ihr Erlös</div>
+                    {% for col in range(9) %}
+                        <div class="grid-cell display-cell" data-col="{{ col }}"></div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="c gen-container">
+        <form method="post">
+        <input type="submit" value="Weiter >>" style="background-color: #007BFF;
+                  color: white;
+                  font-size: 16px;
+                  padding: 10px 20px;
+                  border: none;
+                  border-radius: 5px;
+                  cursor: pointer;">
+        </form>
+    </div>
+</div>
+
+<script>
+    const privateValues = [18, 16, 14, 12, 10, 8, 6, 4, 2];
+    const publicContributorValue = 15;  // New value for contributor
+    const publicOthersValue = -5;      // New value for other players
+    let currentPayoff = { public: 0, private: 0, total: 0 };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const ballsContainer = document.getElementById('balls-container');
+        const inputCells = document.querySelectorAll('.input-cell');
+
+        // Create draggable balls
+        for (let i = 1; i <= 9; i++) {
+            const ball = createBall(i);
+            ballsContainer.appendChild(ball);
+        }
+
+        // Add drag-and-drop listeners
+        inputCells.forEach(cell => {
+            cell.addEventListener('dragover', allowDrop);
+            cell.addEventListener('drop', dropOnInputCell);
+        });
+
+        ballsContainer.addEventListener('dragover', allowDrop);
+        ballsContainer.addEventListener('drop', dropOnBucket);
+
+        // Update initial display values
+        document.querySelectorAll('#grid-3x9 .display-cell').forEach((cell, index) => {
+            const row = Math.floor(index / 9);
+            if (row === 0) {
+                cell.innerHTML = `<strong>${publicContributorValue}</strong>`; // Value for contributor
+            } else {
+                cell.textContent = publicOthersValue; // Value for others
+            }
+        });
+        
+        document.querySelectorAll('#grid-1x9 .display-cell').forEach((cell, index) => {
+            cell.innerHTML = `<strong>${privateValues[index]}</strong>`;
+        });
+        
+        updateSubmitButton();
+    });
+
+    function createBall(ballNumber) {
+        const ball = document.createElement('div');
+        ball.className = 'ball';
+        ball.draggable = true;
+        ball.dataset.ballNumber = ballNumber;
+        ball.id = 'ball-' + Math.random().toString(36).substr(2, 9);
+        ball.addEventListener('dragstart', dragStart);
+        ball.addEventListener('dragend', dragEnd);
+        return ball;
+    }
+
+    function allowDrop(event) {
+        event.preventDefault();
+    }
+
+    function dragStart(event) {
+        event.dataTransfer.setData('text/plain', event.target.id);
+        event.target.classList.add('dragging');
+    }
+
+    function dragEnd(event) {
+        event.target.classList.remove('dragging');
+    }
+
+    function dropOnInputCell(event) {
+        event.preventDefault();
+        const cell = event.target.closest('.input-cell');
+        if (!cell) return;
+
+        const ballId = event.dataTransfer.getData('text/plain');
+        const draggedBall = document.getElementById(ballId);
+        const gridType = cell.dataset.type;
+        const col = parseInt(cell.dataset.col);
+
+        if (cell.querySelector('.ball')) return;
+
+        const previousCell = draggedBall.closest('.input-cell');
+        if (previousCell) {
+            const previousGridType = previousCell.dataset.type;
+            const previousCol = parseInt(previousCell.dataset.col);
+            removeBallFromGrid(previousGridType, previousCol);
+        }
+
+        const newBall = draggedBall.cloneNode(true);
+        newBall.addEventListener('dragstart', dragStart);
+        newBall.addEventListener('dragend', dragEnd);
+        cell.appendChild(newBall);
+
+        if (draggedBall.parentNode) {
+            draggedBall.parentNode.removeChild(draggedBall);
+        }
+
+        if (gridType === 'public') {
+            updatePublicDisplayGrid(col);
+        } else {
+            updatePrivateDisplayGrid(col);
+        }
+
+        calculatePayoff();
+        updateSubmitButton();
+    }
+
+    function updatePublicDisplayGrid(col) {
+        let targetCol = 0;
+        const filledCols = new Set();
+        
+        document.querySelectorAll('#grid-3x9 .display-cell.filled').forEach(cell => {
+            filledCols.add(parseInt(cell.dataset.col));
+        });
+        
+        while (filledCols.has(targetCol)) {
+            targetCol++;
+        }
+
+        const displayCells = document.querySelectorAll(`#grid-3x9 .display-cell[data-col="${targetCol}"]`);
+        displayCells.forEach((cell, index) => {
+            if (index === 0) {
+                cell.textContent = publicContributorValue;
+                cell.classList.add('filled', 'filled-first-row');
+            } else {
+                cell.textContent = publicOthersValue;
+                cell.classList.add('filled', 'filled-other-rows');
+            }
+        });
+
+        realignInputBalls('public');
+    }
+
+    function updatePrivateDisplayGrid(col) {
+        let targetCol = 0;
+        const filledCols = new Set();
+        
+        document.querySelectorAll('#grid-1x9 .display-cell.filled').forEach(cell => {
+            filledCols.add(parseInt(cell.dataset.col));
+        });
+        
+        while (filledCols.has(targetCol)) {
+            targetCol++;
+        }
+
+        const displayCell = document.querySelector(`#grid-1x9 .display-cell[data-col="${targetCol}"]`);
+        displayCell.textContent = privateValues[targetCol];
+        displayCell.classList.add('filled', 'filled-private');
+
+        realignInputBalls('private');
+    }
+
+    function realignInputBalls(gridType) {
+        const inputCells = document.querySelectorAll(`.input-cell[data-type="${gridType}"]`);
+        const balls = [];
+        
+        inputCells.forEach(cell => {
+            const ball = cell.querySelector('.ball');
+            if (ball) {
+                balls.push(ball);
+                cell.removeChild(ball);
+            }
+        });
+        
+        balls.forEach((ball, index) => {
+            inputCells[index].appendChild(ball);
+        });
+    }
+
+    function removeBallFromGrid(gridType, col) {
+        if (gridType === 'public') {
+            const displayCells = document.querySelectorAll(`#grid-3x9 .display-cell[data-col="${col}"]`);
+            displayCells.forEach((cell, index) => {
+                if (index === 0) {
+                    cell.textContent = publicContributorValue;
+                } else {
+                    cell.textContent = publicOthersValue;
+                }
+                cell.classList.remove('filled', 'filled-first-row', 'filled-other-rows');
+            });
+        } else {
+            const displayCell = document.querySelector(`#grid-1x9 .display-cell[data-col="${col}"]`);
+            if (displayCell) {
+                displayCell.textContent = privateValues[col];
+                displayCell.classList.remove('filled', 'filled-private');
+            }
+        }
+    }
+
+    function calculatePayoff() {
+    // Reset payoffs
+    currentPayoff.private = 0;
+    currentPayoff.public = 0;
+
+    // Calculate private account payoff
+    const privateInputCells = document.querySelectorAll('.input-cell[data-type="private"] .ball');
+    const privateCount = privateInputCells.length;
+    
+    // Add values sequentially for private account (18, 16, 14, etc.)
+    for(let i = 0; i < privateCount; i++) {
+        currentPayoff.private += privateValues[i];
+    }
+
+    // Calculate public account payoff
+    const publicInputCells = document.querySelectorAll('.input-cell[data-type="public"] .ball');
+    const publicCount = publicInputCells.length;
+    
+    // Your contribution to public account:
+    // Each token gives you +15
+    currentPayoff.public += publicCount * publicContributorValue;
+
+    // Count contributions from other players by checking filled cells in rows 2 and 3
+    const player2Cells = document.querySelectorAll('#grid-3x9 .grid-row:nth-child(2) .display-cell.filled');
+    const player3Cells = document.querySelectorAll('#grid-3x9 .grid-row:nth-child(3) .display-cell.filled');
+    
+    // Add the negative effect from other players' actual contributions
+    const otherPlayersContributions = player2Cells.length + player3Cells.length;
+    currentPayoff.public += otherPlayersContributions * publicOthersValue;
+
+    // Calculate total payoff
+    currentPayoff.total = currentPayoff.private + currentPayoff.public;
+
+    // Send updated values
+    liveSend({
+        'type': 'update_payoff',
+        'public_payoff': currentPayoff.public,
+        'private_payoff': currentPayoff.private,
+        'total_payoff': currentPayoff.total,
+        'tokens_to_public': publicCount,
+        'tokens_to_private': privateCount
+    });
+}
+
+    function dropOnBucket(event) {
+        event.preventDefault();
+        const ballId = event.dataTransfer.getData('text/plain');
+        const draggedBall = document.getElementById(ballId);
+        const ballsContainer = document.getElementById('balls-container');
+
+        const sourceCell = draggedBall.closest('.input-cell');
+        if (sourceCell) {
+            const gridType = sourceCell.dataset.type;
+            const col = parseInt(sourceCell.dataset.col);
+            removeBallFromGrid(gridType, col);
+        }
+
+        const newBall = createBall(draggedBall.dataset.ballNumber);
+        ballsContainer.appendChild(newBall);
+
+        if (draggedBall.parentNode) {
+            draggedBall.parentNode.removeChild(draggedBall);
+        }
+
+        calculatePayoff();
+        updateSubmitButton();
+    }
+
+    function updateSubmitButton() {
+        const totalBallsPlaced = document.querySelectorAll('.input-cell .ball').length;
+        const nextButton = document.getElementById('next-btn');
+        
+        if (totalBallsPlaced === 9) {
+            nextButton.classList.add('enabled');
+        } else {
+            nextButton.classList.remove('enabled');
+        }
+    }
+</script>
+
+<style>
+    #game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+        padding: 2rem;
+    }
+
+    .header-containerd {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #CFE7FD;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        transform: translateY(-10px);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .bucket-section {
+        text-align: center;
+    }
+
+    .draggable-balls {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-radius: 8px;
+        min-height: 70px;
+    }
+
+    .ball {
+        width: 40px;
+        height: 40px;
+        background-color: #0099fe;
+        border-radius: 50%;
+        cursor: grab;
+    }
+
+    .grids-container {
+        display: flex;
+        gap: 2rem;
+    }
+
+    .grid-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .input-grid {
+        margin-bottom: 1rem;
+        border: 2px dashed #0099fe;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .display-grid {
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .grid-row {
+        display: flex;
+        align-items: center;
+    }
+
+    .grid-cell {
+        width: 50px;
+        height: 50px;
+        border: 1px solid #ddd;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+    }
+
+    .input-cell {
+        background-color: #f8f9fa;
+        border: 1px dashed #0099fe;
+    }
+
+    .filled {
+        background-color: #e9ecef;
+    }
+
+    .player-symbol {
+        width: 100px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .first-row {
+        background-color: rgb(78, 137, 78);
+        color: rgb(12, 11, 11);
+    }
+
+    .other-rows {
+        background-color: rgb(80, 195, 80);
+    }
+
+    #next-btn-container {
+        margin-top: 2rem;
+    }
+    #next-btn {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+    #next-btn.enabled {
+    opacity: 1;
+    pointer-events: auto;
+    }
+
+    .display-cell {
+        background-color: #e0e0e0;
+        color: #666;
+    }
+
+    .filled-first-row {
+        background-color: #4e894e !important;
+        color: white;
+    }
+
+    .filled-other-rows {
+        background-color: #ff9999 !important;
+        color: white;
+    }
+
+    .filled-private {
+        background-color: #4e894e !important;
+        color: white;
+    }
+    .input-cell {
+        background-color: #f8f9fa;
+        border: 1px dashed #0099fe;
+        transition: background-color 0.3s ease;
+    }
+
+    .input-cell:hover {
+        background-color: #e9ecef;
+    }
+
+    /* Remove the original row background colors */
+    .first-row {
+        background-color: #b1b8be;
+    }
+
+    .other-rows {
+        background-color: #b6b9bc;
+    }
+
+    .grid-row {
+        display: flex;
+        align-items: center;
+    }
+
+    .player-symbol {
+        width: 100px;
+        text-align: center;
+        font-weight: bold;
+        background-color: transparent !important;
+    }
+</style>
+{% endblock %}

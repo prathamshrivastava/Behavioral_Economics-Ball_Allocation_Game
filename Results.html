@@ -1,0 +1,111 @@
+{% extends "global/Page.html" %}
+
+{% block title %}
+<div class="header-containerd">
+    <h2 style="text-align: center;">Zweite bezahlte Aufgabe </h2>
+    <h5 style="text-align: center; margin-top: 25px;">
+        Ergebnis Runde {{ player.round_number }}
+    </h5>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <table class="table" id="earningsTable">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Token X (Privat)</th>
+                <th>Token Y (Gemeinschaft)</th>
+                <th>Token Y Person 2</th>
+                <th>Token Y Person 3</th>
+                <th>Ihr Rundenerlös</th>
+                <th>Ihr Gesamterlös</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in all_rounds %}
+            <tr {% if p.round_number == player.round_number %}class="current-round"{% endif %}>
+                <td>Runde {{ p.round_number }}</td>
+                <td class="private-tokens">{{ p.private_tokens }}</td>
+                <td class="public-tokens">{{ p.public_tokens }}</td>
+                <td class="p2-tokens">{{ p.p2_contribution }}</td>
+                <td class="p3-tokens">{{ p.p3_contribution }}</td>
+                <td class="round-earnings">{{ p.final_earnings }}</td>
+                <td class="cumulative-earnings">{{ p.cumulative_earnings }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="c gen-container">
+        <form method="post">
+            <input type="submit" value="Weiter >>" style="background-color: #007BFF;
+                color: white;
+                font-size: 16px;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;">
+        </form>
+    </div>
+</div>
+
+<style>
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin-bottom: 30px;
+    }
+    .table th, .table td {
+        padding: 12px 8px;
+        border: 1px solid #ddd;
+        text-align: center;
+    }
+    .table th {
+        background-color: #f5f5f5;
+        font-weight: bold;
+    }
+    .table tr:hover {
+        background-color: #f9f9f9;
+    }
+    .header-containerd {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #CFE7FD;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        transform: translateY(-10px);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .private-tokens, .public-tokens, .p2-tokens, .p3-tokens {
+        background-color: #f8f9fa;
+    }
+    
+    .round-earnings {
+        font-weight: bold;
+        color: #28a745;
+    }
+    
+    .cumulative-earnings {
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    /* Highlight current round */
+    .current-round {
+        background-color: #f0f8ff;
+    }
+    .current-round:hover {
+        background-color: #e6f3ff !important;
+    }
+</style>
+{% endblock %}
